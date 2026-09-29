@@ -1,2 +1,28 @@
 .venv/
 __pycache__/
+
+# == 运行时数据不入库（v0.4.0 数据分层）==
+# 本分发包只含空框架，不应携带任何真实教学数据。
+# 使用者部署后产生的以下内容，请保持本地、不要提交到公开仓库：
+
+# L0 原始材料：课堂记录 / 微格转写 / 教师笔记 / 同伴观察（含真实师生对话）
+raw/
+data/**/raw/
+
+# 教师个人画像与偏好
+teacher_profile.json
+data/**/teacher_profile.json
+
+# L1 进行中详版与 L2 归档索引
+last_microeval.json
+teacher_growth_report.json
+*.index.json
+data/**/last_microeval.json
+data/**/teacher_growth_report.json
+data/**/*.index.json
+
+# 数据库与日志
+*.db
+*.db-wal
+*.db-shm
+*.log
