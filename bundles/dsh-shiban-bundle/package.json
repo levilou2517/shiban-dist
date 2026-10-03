@@ -1,0 +1,15 @@
+{
+  "name": "@local/dsh-shiban-bundle",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  },
+  "description": "师伴素材服务 Tool 宿主插件（v0.4.3 最小验证）：Agent 原生读 assets/raw",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

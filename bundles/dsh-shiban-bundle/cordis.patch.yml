@@ -1,0 +1,8 @@
+- insert:
+    - id: shiban-bundle
+      name: '@local/dsh-shiban-bundle'
+      config:
+        # 师伴工作区内的 CLI 启动器（Tool 经它在同一 store 上读写，单一数据路径）
+        cliPath: "@SHIBAN_CLI@"
+        # 数据根留空：继承运行环境 SHIBAN_ROOT（沙箱）/ store 默认 ~/.shiban（主 GUI）
+        shibanRoot: ''
