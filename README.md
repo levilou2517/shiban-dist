@@ -150,11 +150,22 @@ bash bin/shiban-store asset compose --spec-file spec.json
 | **L1 进行中工作** | 教案、随堂测、单次评价 | ⚠️ 通常含真实学情 |
 | **L2 历史连接** | 归档索引，只含引用与结论 | ❌ 不可，引用了 L0 |
 
-本仓库 `.gitignore` 已预置排除规则。
+本仓库 `.gitignore` 已预置排除规则，**并已覆盖技能「产出契约」实际写入的文件名**
+（`current_lesson.json`、`current_quiz.json`、`last_eval.json`、`lesson_plan_candidates.json`、
+`task_plan.json`），以及 `data/**/assets/` 素材正文与 `slide_*.html` / `lesson_*.md` 交付物。
+
+> ⚠️ **不要把示例/参照数据放进 `data/shiban/` 再提交**：该目录同时是技能的运行时写入区，
+> 首次运行就会覆盖同名文件。仓库若携带这类文件，使用者会把「仓库自带的旧内容」误判为
+> 「数据层写入正常」，而真实的写入通路可能从未被验证过。需要长期保留的 schema 参照，
+> 请放在**不参与运行**的独立目录（如 `examples/`）。
+>
+> 自检请改用 §7.2 的功能性往返验证 —— 它不依赖任何预置文件。
 
 ---
 
 ## 7. 验证清单
+
+### 7.1 静态检查（装上了没有）
 
 | 检查 | 期望 |
 |---|---|
@@ -164,6 +175,49 @@ bash bin/shiban-store asset compose --spec-file spec.json
 | `bash bin/shiban-store init` | 返回 `"ok": true`，root 指向素材库根 |
 | dsh 会话 Agent 列表 | 出现「师伴」 |
 | **浏览器打开一个编排页** | ⚠️ **本版未验证**，须你亲自确认动画、隔离与科学性 |
+
+### 7.2 写入通路（功能性自检，必须真跑）
+
+静态检查只能证明「装上了」，**不能证明写得进去、读得回来、中文不乱**。
+下面这段在**临时根**上做一次完整往返，因此**不会碰你的真实素材库**（已实测通过）：
+
+```bash
+TMP="$(mktemp -d)"; export SHIBAN_ROOT="$TMP"
+printf '{"selftest":true}' > "$TMP/spec.json"
+KP='细胞是生命活动的基本单位'
+
+bash bin/shiban-store init
+bash bin/shiban-store asset add --id selftest --kind note \
+     --title 细胞自检 --file "$TMP/spec.json" --kp "$KP"
+
+bash bin/shiban-store asset get --id selftest          # ① 中文标题/知识点应原样返回
+bash bin/shiban-store asset list --kp "$KP"            # ② 精确查：应命中 selftest
+bash bin/shiban-store asset list --kp 细胞             # ③ 精确语义反证：应为空 []
+bash bin/shiban-store asset suggest --kp 细胞          # ④ 子串查：应命中 selftest
+
+bash bin/shiban-store raw save --name selfcheck.txt --text "$KP"
+bash bin/shiban-store raw read --name selfcheck.txt    # ⑤ 必须原样回显中文
+
+rm -rf "$TMP"
+```
+
+> ③ 与 ④ 是**故意配对**的：`asset list --kp` 是**精确**匹配，`asset suggest --kp` 才是**子串**匹配。
+> 若 ③ 也命中了，说明过滤被放宽；若 ④ 没命中，说明子串检索坏了。两者一起才能界定语义。
+
+判定：
+
+| 现象 | 含义 |
+|---|---|
+| ①②④⑤ 全通 | ✅ 写入、精确/子串检索、中文编码全通 |
+| ① 或 ⑤ 中文成乱码 / 报 `UnicodeDecodeError` | ❌ 落盘或读取的编码不是 UTF-8 |
+| Tool 报「CLI 输出非 JSON」 | ❌ stdout 编码不是 UTF-8（中文 Windows 典型）。本版已在 `services/shiban_cli.py` 内 `reconfigure` 为 UTF-8，并用 `PYTHONUTF8=1` 双保险；若仍出现，确认工作区里不是旧副本 |
+| ③ 命中 | ❌ 精确过滤失效，检索被放宽 |
+| ④ 未命中 | ❌ 子串检索失效 |
+| 素材落在 `~/.shiban` 而非 `SHIBAN_ROOT` | ❌ `shibanRoot` 未生效，数据落错位置——这正是「素材必须在本体之外」被破坏的情形 |
+
+> **为什么不用「看一眼 `data/shiban/` 里有没有文件」当判据**：那个目录是技能的运行时写入区，
+> 仓库若预置了同名文件，你会看到「有文件」而误判为正常——那是假信号。上表用的是
+> **你自己刚写进去、再读回来的字节**，这才构成证据。
 
 ---
 

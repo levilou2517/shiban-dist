@@ -298,14 +298,23 @@ CREATE TABLE scaffold_effectiveness_agg (
 
 ---
 
-## 6. 测试数据与真实数据分离（前评估确认：当前 data/shiban 全为测试/示例）
+## 6. 测试数据与真实数据分离
 
-| 区 | 位置 | 性质 |
-|---|---|---|
-| 示例/测试区 | A 域 `data/shiban/`（保留现有 class_profile.db、current_*.json、last_eval.json、examples） | 演示/schema 参照/里程碑，**不入真实持久层** |
-| 真实持久层 | `~/.shiban/data/`（宿主服务管理） | **从空开始**，首次真实课堂才写入 |
+> **本节路径约定已于 v0.5.0 修正。** 旧版把「示例/测试区」与技能运行时写入区都放在
+> `data/shiban/`，两者**同路径**：技能的产出契约（见 `skills/lesson-plan.md`、`quiz.md`、
+> `class-eval.md`）就写这个目录，首次运行即覆盖同名文件。后果是使用者会把仓库自带的
+> 旧内容误判为「写入通路正常」——自检假信号。因此改为按**是否被运行写入**分区：
 
-**迁移**：现有数据全部留在示例区；`scripts/init_db.py`（4 条模拟画像）与 `build_profile_db.py`（示例 6 表）作为**结构/schema 参照源码保留**，但真实持久层用新的 `meta.db`/`reference.db` 结构，互不混淆。
+| 区 | 位置 | 写入者 | 可否入库 |
+|---|---|---|---|
+| **运行时写入区** | 工作区 `data/shiban/` | 技能产出契约（`current_lesson.json`、`current_quiz.json`、`last_eval.json`、`lesson_plan_candidates.json`、`task_plan.json`） | ❌ **不可**（`.gitignore` 已排除） |
+| **示例/参照区** | 独立目录，不参与运行（如 `examples/`） | 人工维护 | ✅ 可（仅 schema 参照，不得含真实学情） |
+| **真实持久层** | 素材库根 `<assets>/data/`（`SHIBAN_ROOT` 指定，宿主服务管理） | store CLI / 宿主 Tool | ❌ 不可（教师个人资产，独立于本体） |
+
+**迁移说明**：`~/.shiban/data/` 只是未配置 `SHIBAN_ROOT` 时的兜底位置，**不是**推荐的持久层；
+正式部署应把 `shibanRoot` 指向本体之外的素材库根。`scripts/init_db.py`（4 条模拟画像）与
+`build_profile_db.py`（示例 6 表）作为结构/schema 参照源码保留，与新的 `meta.db`/`reference.db`
+结构互不混淆。
 
 ---
 

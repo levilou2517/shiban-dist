@@ -43,7 +43,26 @@ function makeRunner(ctx, config) {
     try {
       bash = await subprocess.resolveExecutable('bash');
     } catch (e) {
-      return { ok: false, error: `无法解析 bash: ${e && e.message ? e.message : e}` };
+      // Windows 兜底：Git for Windows 的 bash 常常不在 PATH 中。候选不写死盘符——
+      // 跟随系统盘（SystemRoot）推导，并允许行配置 GIT_HOME 指定 Git 安装根；
+      // 仍失败则如实报错，不掩盖真实问题。
+      const sysDrive = /^[A-Za-z]:/.test(process.env.SystemRoot || '')
+        ? process.env.SystemRoot.slice(0, 2)
+        : 'C:';
+      const roots = [process.env.GIT_HOME, `${sysDrive}\\Program Files\\Git`, `${sysDrive}\\Git`]
+        .filter(Boolean);
+      const candidates = roots.flatMap((r) => [`${r}\\bin\\bash.exe`, `${r}\\usr\\bin\\bash.exe`]);
+      let found;
+      for (const cand of candidates) {
+        try {
+          found = await subprocess.resolveExecutable(cand);
+          if (found) break;
+        } catch {}
+      }
+      if (!found) {
+        return { ok: false, error: `无法解析 bash: ${e && e.message ? e.message : e}` };
+      }
+      bash = found;
     }
     const env = {
       ...process.env,

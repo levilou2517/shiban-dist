@@ -13,6 +13,21 @@ data/**/raw/
 teacher_profile.json
 data/**/teacher_profile.json
 
+# L1 运行时产物：技能「产出契约」实际写入的文件名（见 skills/*.md）。
+# 这些路径与「示例/schema 参照」重合，运行一次即被覆盖，
+# 因此任何情况下都不得把内容提交进仓库 —— 否则使用者会把仓库自带的旧内容
+# 误当成「写入通路正常」的证据（自检假信号）。
+current_lesson.json
+current_quiz.json
+last_eval.json
+lesson_plan_candidates.json
+task_plan.json
+data/**/current_lesson.json
+data/**/current_quiz.json
+data/**/last_eval.json
+data/**/lesson_plan_candidates.json
+data/**/task_plan.json
+
 # L1 进行中详版与 L2 归档索引
 last_microeval.json
 teacher_growth_report.json
@@ -20,6 +35,11 @@ teacher_growth_report.json
 data/**/last_microeval.json
 data/**/teacher_growth_report.json
 data/**/*.index.json
+
+# 交付物与素材正文（教师个人资产，只存于素材库根）
+slide_*.html
+lesson_*.md
+data/**/assets/
 
 # 数据库与日志
 *.db
