@@ -8,7 +8,7 @@
 
 | 能力 | 入口 | 验证方式 |
 |---|---|---|
-| 数据根初始化与自检 | `shiban-store init` / `doctor` | 装后运行 `doctor`，日志见 `data/logs/runtime.log` |
+| 数据根初始化与自检 | `shiban-store init` / `doctor` | `scripts/smoke.py` |
 | 产物读写（原子写 + 引用图 + 乐观锁） | `artifact put/get/list/confirm/discard/archive/stale` | 模块自检 |
 | 图传播（上游变更 → 下游 stale） | `artifact stale` | 自检断言 |
 | 原始证据只追加 | `evidence save/list/read` | 自检断言（重名拒绝） |
