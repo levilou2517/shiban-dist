@@ -1,184 +1,190 @@
-# 师伴（shiban）Agent · 部署指南
+# 师伴 ShiBan v0.5.0
 
-> **本文件是一份部署指导**：它告诉你（人）和/或 AI 助手——师伴分发包在哪、如何部署到一个全新的 DSH 环境。
-> 全程只安装**空 Agent 框架**，**不含任何真实教学数据**。
->
-> **适用版本：v0.5.0-test（预发布）**。本版的安装机制与 v0.4.x **不兼容**，旧部署步骤已失效，请勿混用。
->
-> ⚠️ **预发布声明**：本版把素材编排引擎从「正则改写内联」换成了「`iframe srcdoc` 沙箱隔离」，并新增了素材库与编排工具。**真实浏览器渲染与教学科学性尚未验证**（装配环境无可用浏览器）。用于生产教学前请先自行验收。
+面向**师范生与新手教师**的循证教学辅助 Agent，作为 DSH 插件分发。
 
----
+装完是一个**空壳**：人格、六项原子技能、数据层就位——教材、素材与课堂证据由你自行导入或在使用中逐步积累。
 
-## 0. 本版改了什么（相对 v0.4.x）
-
-| 项 | v0.4.x | v0.5.0-test |
-|---|---|---|
-| Agent 预设安装 | 拷目录到 `~/.dsh/.agent-presets/shiban/` | **npm bundle**，经 `dsh plugin … add file:` 装进 profile。旧目录自 DSH 0.2.0-rc.2 起**已无任何消费者** |
-| 素材能力 | 无（技能 md 之外什么都没有） | 素材库 + 检索 + 复用 + 隔离编排 + 宿主 Tool（`shiban_asset_*` / `shiban_raw_*`） |
-| 素材存放 | —— | **独立素材库根**（安装时指定），与工作区本体分离，可整体拷贝带走 |
-| 编排产物隔离 | 正则剥脚本 + 改写 CSS/JS | 完整 HTML 文档入 `srcdoc` 沙箱，各节独立数据，可嵌套再组合 |
-| CLI 参数容错 | JSON 解析失败时告警后按字符串存 | **报错退出（exit 2）** |
+```
+dsh plugin --profile web add shiban-0.5.0.tgz
+```
 
 ---
 
-## 1. 分发包在哪
+## 它不是什么
 
-| 项 | 值 |
+| | |
 |---|---|
-| 仓库 | **`https://github.com/levilou2517/shiban-dist`**（Public） |
-| 本版 tag | **`v0.5.0-test`**（预发布，非正式版） |
-| 内容 | 六项技能、数据层、两个可安装 bundle、部署脚本与本指南 |
+| ❌ 一键生成教案的工具 | ✅ **问**出来的教案：师伴以问题引导，你决定，它记录理由 |
+| ❌ 自带教材与教案 | ✅ **空包**：教材、论文、教具都由你自己导入，版权归你 |
+| ❌ 替你做判断 | ✅ 每次评价并列"模型看到的"与"你说的"，分歧保留 |
+| ❌ 黑箱建议 | ✅ 每条理论依据带文献编号与页码，可自行核对 |
 
-**目录结构**：
-
-```
-shiban-dist/
-├── README.md                 ← 本指南
-├── skills/                   ← 六项技能 + 技能地图 README
-│   ├── lesson-plan.md  quiz.md  class-eval.md
-│   ├── class-profile.md  teacher-growth.md
-│   └── html-material.md      ← 新增：教师素材库（查/积累/复用/编排）
-├── services/*.py             ← 持久数据层（Python 标准库，零第三方依赖）
-├── bin/shiban-store          ← 数据层入口（唯一数据路径）
-├── bundles/                  ← 新增：可安装的 npm bundle
-│   ├── dsh-shiban-presets/   ← Agent 预设（@local/dsh-shiban-preset）
-│   └── dsh-shiban-bundle/    ← 素材服务 Tool（@local/dsh-shiban-bundle）
-└── install.sh                ← 一键部署（推荐，见 §3）
-```
-
-> 分发包**不含**教材、`材料/`、`md/`、任何运行数据。素材属教师个人资产，只存在于你自己的素材库根，永不进本仓库。
+**核心理念**：师伴的目标不是帮你完成工作，而是**引导你把工作想清楚**。
+判断标准是——产物里"你做的决定"和"它替你做的判断"必须分得开。
 
 ---
 
-## 2. 部署目标位置
+## 安装
 
-| 组件 | 装到哪 | 说明 |
-|---|---|---|
-| Agent 预设 + 素材工具 | `$DSH_HOME/profiles/<profile>/node_modules/@local/` | 由 `dsh plugin` 安装，**不要手工拷贝** |
-| 技能 | 工作区 `.dsh/skills/` | dsh 技能扫描根 |
-| 数据层 | 工作区 `services/` + `bin/` | 纯标准库脚本 |
-| **素材库与运行数据** | **你指定的素材库根**（默认 `~/shiban-materials`） | 与本体分离；`SHIBAN_ROOT` 指向它 |
+### 前置
 
----
+| 项 | 要求 |
+|---|---|
+| DSH | ≥ 0.2.0-rc.2 |
+| Node | ≥ 20 |
+| Python | ≥ 3.9（依赖已随包携带，无需 pip install） |
 
-## 3. 部署步骤（推荐：install.sh）
+可选：`pdftotext`（导入 PDF 教材）、Chrome/Chromium（导出 PDF 教案）。
+缺了会降级，不会失败。
+
+### 安装
 
 ```bash
-git clone https://github.com/levilou2517/shiban-dist.git
-cd shiban-dist
-git checkout v0.5.0-test
-
-bash install.sh /path/to/你的工作区 \
-     --profile 你的profile名 \
-     --assets-root /path/to/素材库
+# 下载 dist/shiban-0.5.0.tgz 后
+dsh plugin --profile web add ./shiban-0.5.0.tgz
 ```
 
-脚本做五件事（均为实测通过的路径）：
+装好后：预设「**师伴 v0.5.0**」自动出现、数据根自动建好、六项技能随包加载。
 
-1. 技能 → `<工作区>/.dsh/skills/`
-2. 数据层 → `<工作区>/services/` + `bin/`
-3. `dsh plugin --profile <profile> add file:…` 装入两个 bundle
-4. **把素材工具的 `cliPath` 写成你工作区的绝对路径、`shibanRoot` 写成素材库根**
-5. 在素材库根执行 `shiban-store init`（只建空表，不播种）
-
-**为什么第 4 步必须存在**：素材 bundle 装在 profile 的 `node_modules` 下，与你工作区的 `bin/shiban-store` 没有固定相对关系。任何写死的相对路径在别人机器上都会失效，所以安装期必须填绝对路径。
-
-### 3.1 前置
-
-- 已安装 `dsh` 与 `pnpm`（`dsh plugin` 转发给 pnpm）。
-- `python3`（数据层用标准库，无需 pip 安装）。
-
----
-
-## 4. 部署步骤（给 AI：脚本化）
-
-```
-你是部署助手。目标：把 shiban-dist（v0.5.0-test）部署成师伴 Agent。只装空框架，不写任何真实数据。
-1. clone 分发包到 <DIST>，确认 tag 为 v0.5.0-test。
-2. 直接执行：bash <DIST>/install.sh <工作区> --profile <profile> --assets-root <素材库根> --yes
-   （脚本已封装正确机制，不要自行改用 cp 到 ~/.dsh/.agent-presets —— 该目录已无消费者）
-3. 校验：
-   - <profile>/node_modules/@local/ 下有两个包
-   - 其中 dsh-shiban-bundle/cordis.patch.yml 的 cliPath 指向 <工作区>/bin/shiban-store（绝对路径）
-   - 工作区 .dsh/skills/ 共 7 个 md = 6 项技能（含 html-material.md）+ 技能地图 README.md
-   - 素材库根/data 下有 meta.db 与 reference.db，且无业务数据
-4. 提示用户重启 dsh、选对应 profile，会话中 Agent 选「师伴」。
-注意：写入 ~/.dsh 与素材库根在 workspace-write 沙箱下可能被拒——按沙箱规则申请升级并说明仅用于部署。
-```
-
----
-
-## 5. 素材库：本版的核心概念
-
-素材是**教师在使用中积累、可跨课复用的外部资产**，与师伴本体分离。
-
-```
-<素材库根>/data/assets/
-├── <原子id>/main.html + meta.json   ← 单个可复用组件，meta 声明输入契约
-├── <编排页id>/main.html             ← 由若干原子组合出的页面
-└── vendor/<lib>@<版本>/             ← 内化的第三方库（固定版本）
-```
-
-- **备份 = 拷贝这个目录**，它自成整体。
-- 换机部署：把素材库根一起拷走，安装时用 `--assets-root` 指过去。
-- 素材库根**不应等于工作区**（install.sh 会拒绝），否则素材又混进本体。
-
-### 5.1 常用命令
+### 验证
 
 ```bash
-export SHIBAN_ROOT=/path/to/素材库
-bash bin/shiban-store asset list --kp DNA          # 精确查
-bash bin/shiban-store asset suggest --kp 细胞       # 模糊承接（子串）
-bash bin/shiban-store asset compose --spec-schema   # 取编排规格契约
-bash bin/shiban-store asset compose --spec-file spec.json
+shiban-store info      # 确认版本、安装位置、数据根
+shiban-store doctor    # 环境自检
 ```
 
-大段规格请用 `--spec-file` 或 `--spec-stdin`，不要塞进命令行参数。
+详见 [docs/DEPLOY.md](docs/DEPLOY.md)。
 
 ---
 
-## 6. 数据安全边界
+## 六个原子技能
 
-- 分发包**不含**任何班级、学生、教师记录；`init` 只建表，不播种。
-- 素材、课堂记录属教师个人资产，只存于素材库根，不进任何公开仓库。
-
-运行数据分层（详见 `skills/README.md`）：
-
-| 层 | 内容 | 可否提交公开仓库 |
+| 技能 | 做什么 | 可以单独用吗 |
 |---|---|---|
-| **L0 原始材料** | 课堂记录、微格转写、教师笔记（含真实师生对话） | ❌ 绝不可 |
-| **L1 进行中工作** | 教案、随堂测、单次评价 | ⚠️ 通常含真实学情 |
-| **L2 历史连接** | 归档索引，只含引用与结论 | ❌ 不可，引用了 L0 |
-
-本仓库 `.gitignore` 已预置排除规则。
+| `lesson-plan` | 教案设计、说课视角 | ✅ 无画像无语料也能起步（但会提问补足） |
+| `quiz` | 归因型随堂测、批阅模板 | ✅ 可直接从知识点出题 |
+| `class-eval` | 课后评价（真实课堂 / 微格内省） | ✅ 无学生证据时走内省模式 |
+| `class-profile` | 学情画像查询与落库 | ✅ 无数据时如实说"没建立" |
+| `teacher-growth` | 跨次成长回顾 | ✅ 可从零散记录起步 |
+| `html-material` | 教具素材的查询、生成、编排 | ✅ 可只查库或复用 |
 
 ---
 
-## 7. 验证清单
+## 引导式提问
 
-| 检查 | 期望 |
+师伴不会一次性问十个问题，也不会自己闷头做完。它有三档推进：
+
+| 档 | 触发 | 行为 |
+|---|---|---|
+| **A 立即问** | 关键决策（核心问题、学情卡点、支架判据） | 停下来问，强制等待 |
+| **B 暂存推进** | 重要但不阻塞 | 记下问题，**继续做不依赖它的部分** |
+| **C 阈值暂停** | 待答问题累计到 **5** 个 | 一次发出全部问题，必须回答才继续 |
+
+每一次暂存、暂停、回答都留有记录：
+
+```bash
+shiban-store ask stats    # 暂停次数、暂停时平均待答数、回答率
+shiban-store ask list     # 最近的问题流水
+```
+
+---
+
+## 数据分四层
+
+| 层 | 内容 | 位置 | 随包 | 可外传 |
+|---|---|---|---|---|
+| 骨架 | 人格、技能、模板、标准、代码 | 插件内 | ✅ | ✅ |
+| 语料 | 教材、课标、论文 | `corpus/` | ❌ 导入 | ❌ 版权 |
+| 素材 | 教具、外来 HTML | `data/assets/` | ❌ 产生 | ✅ 自愿 |
+| 证据 | 课堂记录、偏好 | `data/evidence/` | ❌ | ❌ 永不出机 |
+
+**教材是燃料，标准是尺子，模板是图纸，教案和素材是成品，证据是隐私。**
+
+---
+
+## 理论依据可追溯
+
+内置 **38 项**文献/标准登记（552 页），提炼成三份可操作框架：
+
+| 框架 | 依据 | 内容 |
+|---|---|---|
+| `pck-zpd.md` | 5 篇 · 123 处引用 | PCK 三轴、5 条"联系"判据、ZPD 与支架三条硬要求、18 个提问模板、22 条判定清单 |
+| `evidence-levels.md` | 4 篇 · 26 处引用 | 数据→证据四层、A–D 证据级、够不够四问、微格铁律 |
+| `standards-map.md` | 21 行映射 | 国家/考试标准 → 可检查项 → 判定门槛 |
+
+```bash
+shiban-store theory list
+shiban-store theory search --kw 最近发展区
+shiban-store theory cite --id T-BUILTIN-029 --page 7 --quote "…"
+shiban-store theory audit      # 页码越界、引证超长、不可核验条目
+```
+
+> 内置的是**提炼框架与引证编号，不是论文全文**（全文有版权）。
+> 你自己的文献用 `theory add` 加入 `derived/` 区，升级永不覆盖。
+
+---
+
+## 常用命令
+
+```bash
+# 教案
+shiban-store lesson template --out lesson.json
+shiban-store lesson validate --file lesson.json --check-theory
+shiban-store lesson render   --file lesson.json --style competition --out-dir out/
+
+# 语料
+shiban-store corpus import --file 生物学必修2.pdf \
+    --meta '{"corpus_id":"bx2","kind":"textbook","title":"生物学必修2"}' --page-offset 9
+shiban-store corpus search --kw 半保留 --cite
+
+# 素材
+shiban-store asset triage --path ./网页素材/
+shiban-store asset import --file demo.html --title 细胞周期动画 --category demo --stage 导入
+
+# 产物
+shiban-store artifact list --kind les
+shiban-store ctx pack --for lesson-plan --kw 半保留
+```
+
+---
+
+## 版本与数据
+
+| 项 | 格式 |
 |---|---|
-| `dsh plugin --profile <p> why @local/dsh-shiban-preset` | 已安装 |
-| `<profile>/node_modules/@local/dsh-shiban-bundle/cordis.patch.yml` | `cliPath` 为**绝对**路径且文件存在 |
-| 工作区 `.dsh/skills/` | 共 7 个 md：6 项技能（含 **html-material.md**）+ 技能地图 README.md |
-| `bash bin/shiban-store init` | 返回 `"ok": true`，root 指向素材库根 |
-| dsh 会话 Agent 列表 | 出现「师伴」 |
-| **浏览器打开一个编排页** | ⚠️ **本版未验证**，须你亲自确认动画、隔离与科学性 |
+| 包名 | `@local/dsh-shiban-v0-5-0` |
+| 预设 | `ShiBan_V0_5_0` · 显示「师伴 v0.5.0」 |
+| 数据根 | `~/.shiban/versions/v0_5_0/` |
+
+数据根按版本隔离 → 升级不破坏旧版；素材用 `shiban-store migrate` 显式继承（**只继承 v0.5.0 及以后**）。
 
 ---
 
-## 8. 常见问题
+## 文档
 
-| 问题 | 处理 |
+| 文件 | 内容 |
 |---|---|
-| 预设列表没有师伴 | 确认装在了**你启动会话所用的 profile**；`dsh plugin --profile <name> add` 的 name 要与启动时一致 |
-| 素材 Tool 报"CLI 不存在" | `cordis.patch.yml` 的 `cliPath` 不是绝对路径或指错，重跑 install.sh 第 4 步 |
-| 素材 Tool 报 `shibanRoot 必须为绝对路径` | 配置里写了相对路径，改绝对 |
-| 素材查不到 | 确认运行环境与 Tool 配置指向**同一个** `SHIBAN_ROOT` |
-| 编排页里 vendor 库的素材不渲染 | 已知未验证项：沙箱 `srcdoc` 为不透明源，能否加载相对 `file://` 资源未经浏览器验证。需保留 `data/assets/vendor/` 目录结构，不能单文件搬移 |
-| 沙箱拒绝写 `~/.dsh` | 按沙箱规则申请升级权限，仅用于部署框架 |
-| 完全重置 | `rm -rf <素材库根>/data` 后重新 `bash bin/shiban-store init` |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | 部署、升级、迁移、故障排查 |
+| [docs/README.md](docs/README.md) | 一分钟上手与命令索引 |
+| [docs/architecture.md](docs/architecture.md) | 数据流与写作规则 |
+| [docs/lesson-guide.md](docs/lesson-guide.md) | 十一章节教案体例 |
+| [docs/import-guide.md](docs/import-guide.md) | 导入自己的教材与论文 |
+| [docs/capability.md](docs/capability.md) | **已实现 / 未实现 / 未验证**（未验证 ≠ 通过） |
+| [framework/ask-protocol.md](framework/ask-protocol.md) | 提问三档协议 |
 
 ---
 
-*本指南只安装师伴空框架，不含任何真实教学数据。数据与素材由使用者首次使用后自行累积在素材库根。*
+## 已知限制
+
+见 [docs/capability.md](docs/capability.md)。简要说：
+
+- Windows 启动器未在 Windows 实机验证
+- Chrome 导出 PDF 的分支未触发（开发机走 Prince）
+- 未在真实 `~/.dsh` 上安装验证（沙箱限制），已用副本等价验证
+
+---
+
+## 许可
+
+代码 MIT。内置理论框架为原创提炼，可自由使用；
+内置文献**只登记元数据，不含全文**——原文版权归原作者，请自行获取。
