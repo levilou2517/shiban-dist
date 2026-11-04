@@ -1,8 +1,16 @@
-# 师伴（shiban）v0.5.0 —— DSH 插件装配
+# 师伴（shiban）v0.5.1 —— DSH 插件装配
 #
 # 本文件是一个 bundle patch：`dsh plugin add <本包目录>` 后，本 profile 的
 # 组合树上会出现 preset-shiban 声明行。挂载契约（@deepseek-ai/dsh-agent-preset）：
 #   dsh-agent-preset  Config: { id(必填), name?, description?, order?, plugins(必填) }
+#
+# v0.5.1 相对 v0.5.0 只做 DSH 0.2.1-rc.5 的兼容性适配，不改教学逻辑：
+#   - 移除 tool-subagent 的 persona（DSH 0.2.1-rc.3 起硬报错）；
+#     子 Agent 人格迁到独立子 Agent preset（ShiBan_Executor_V0_5_1），
+#     由主委派行用 agentPreset 绑定。
+#   - 移除 backgroundMode（DSH 0.2.1-rc.3 起已移出 schema，运行时有统一托管）。
+#   - modelSelectionSettings 保持不变：rc.5 的 schema 只有这个字段，
+#     改成 modelSelection 会被静默忽略（见下）。等 0.2.2 真移除时再迁。
 #
 # v0.5.0 与 v0.4.x 的结构差异：
 #   - 技能随包：skill-filesystem 的 bundledSkillDir 指向本包 skills/，
@@ -18,27 +26,29 @@
     # 装完即用：挂载时建 $SHIBAN_ROOT 骨架、跑 init + doctor，缺失的工具写进
     # $SHIBAN_ROOT/data/logs/runtime.log，而不是让用户在会话里自己撞见。
     # 本行不 provide 任何 service，因此不需要 realm。
-    - id: shiban-runtime-v0-5-0
+    - id: shiban-runtime-v0-5-1
       name: '@levilou/dsh-shiban'
 
     # ── 师伴预设 ───────────────────────────────────────────────────────────
     #
-    # 本行由 dsh-agent-preset 声明；装上本 bundle 后预设「师伴 v0.5.0」
-    # （id: ShiBan_V0_5_0）自动出现在预设列表中，无需任何手工配置。
+    # 本行由 dsh-agent-preset 声明；装上本 bundle 后预设「师伴 v0.5.1」
+    # （id: ShiBan_V0_5_1）自动出现在预设列表中，无需任何手工配置。
     # 命名带版本，使多个版本可以并存与回退；数据根按版本隔离并自动迁移。
-    - id: preset-shiban-v0-5-0
+    - id: preset-shiban-v0-5-1
       name: '@deepseek-ai/dsh-agent-preset'
       config:
-        id: ShiBan_V0_5_0
-        name: 师伴 v0.5.0
+        id: ShiBan_V0_5_1
+        name: 师伴 v0.5.1
         description: 面向师范生与新手教师的循证教学辅助 Agent。装完即为空壳：人格、六项原子技能与数据层就位，教材、素材与课堂证据由教师自行导入或在使用中逐步积累。
         order: 10
         plugins:
+          # workdir 变量由运行时行（shiban-runtime-v0-5-1）在 Host 层注册，
+          # assemble() 会先合并 global 层变量，预设内 persona 同样可见。
           - id: persona
             name: '@deepseek-ai/dsh-persona'
             config:
               prefix: |-
-                你是「师伴」教学辅助 Agent，用户是高中生物学科的新手教师或师范生。工作目录是 {{cwd}}。
+                你是「师伴」教学辅助 Agent，用户是高中生物学科的新手教师或师范生。工作目录是 {{workdir}}。
 
                 核心目标：帮助教师设计坡度合适的过渡性知识（教学支架），并通过循证方式持续优化。
 
@@ -233,13 +243,25 @@
             name: '@deepseek-ai/dsh-skill-filesystem'
             config:
               includeDefaultRoots: true
+              # 两路并行，互不依赖时序：
+              #  ① 运行时插件 lib/paths.js 在模块加载时设 DSH_BUNDLED_SKILL_DIR
+              #     （skill-filesystem 原生读它，此时它不会被构造早于此）；
+              #  ② 若 ① 尚未发生，下面的 !!js 用 import.meta.url 等价机制兜底——
+              #     通过 NODE_PATH 无关的 process.execPath 反查不可行，故显式读环境变量
+              #     并在为空时回退到由 require.resolve 从 profile 解析。
               bundledSkillDir: !!js >-
-                process.getBuiltinModule('node:path').join(
-                  process.getBuiltinModule('node:path').dirname(
-                    process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('@levilou/dsh-shiban/package.json')
-                  ),
-                  'skills'
-                )
+                (function () {
+                  const env = process.env.DSH_BUNDLED_SKILL_DIR;
+                  if (env) return env;
+                  const path = process.getBuiltinModule('node:path');
+                  for (const base of [baseUrl, process.getBuiltinModule('node:path').join(process.cwd(), 'x.js')]) {
+                    try {
+                      const req = process.getBuiltinModule('node:module').createRequire(base);
+                      return path.join(path.dirname(req.resolve('@levilou/dsh-shiban/package.json')), 'skills');
+                    } catch (e) {}
+                  }
+                  return '';
+                })()
 
           - id: tool-skill
             name: '@deepseek-ai/dsh-tool-skill'
@@ -308,54 +330,27 @@
               - id: tool-subagent-list-agents
                 name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
 
+              # DSH 0.2.1-rc.3 起，tool-subagent 的 `persona` 与 `toolFilter`
+              # 直接抛错（"is no longer supported"）；子 Agent 人格改为在
+              # 独立 preset 里声明，用 agentPreset 绑定（见下方
+              # preset-shiban-executor-v0-5-1）。fork 会继承父 preset，
+              # 不能单独换人格，所以只挂在 spawn 行上。
               - id: tool-subagent
                 name: '@deepseek-ai/dsh-tool-subagent'
                 config:
                   provider: spawn
                   toolName: subagent
+                  # 实测：rc.5 的 schema 只认 modelSelectionSettings，
+                  # modelSelection 会被静默忽略（不报错但能力关闭）。
+                  # 等 0.2.2 真正移除旧名时会报错，届时再改。
                   modelSelectionSettings: true
-                  backgroundMode: continuable
-                  persona: |-
-                    你是师伴「模块执行者」子 Agent，由师伴指挥 Agent 委派，执行单个原子的专业任务。
-                    你不是指挥 Agent，也不是通用编码助手：不要做意图识别，不要再委派其他 Agent，不要组建团队。
-
-                    工作目录：{{cwd}}。
-
-                    ## 执行顺序（不可跳过）
-                    1. 用 skill 工具加载任务指定的技能（lesson-plan / quiz / class-eval /
-                       class-profile / teacher-growth / html-material 之一）。
-                       加载失败就停下并在回执里报 failed，不要凭记忆拼凑。
-                    2. 用 `shiban-store ctx pack --for <你的技能> ...` 取上下文包。
-                       不要自己去翻文件拼输入——包里的字段名就是契约字段名。
-                    3. 按技能契约产出内容，然后用 `shiban-store artifact put` 提交。
-                       id、版本、状态、引用校验都由 CLI 负责；你只提供 kind 与 payload。
-
-                    ## 你必须遵守的三条
-                    - 不编造：引用教材必须能在 `corpus read` 复现；缺语料就在 degrade 里声明。
-                    - 不越界：只写技能契约约定的产物品类；不改别人的产物；不直接编辑 $SHIBAN_ROOT 下的文件。
-                    - 不改状态：status 由 CLI 推进，你不能在 payload 里自封"已完成"。
-
-                    ## 返回给指挥的内容（只返回这一段，不粘贴产物正文）
-                    {
-                      "task_id": "...",
-                      "atom": "<你的技能名>",
-                      "status": "ok|partial|failed",
-                      "skills_loaded": ["<技能名>"],
-                      "artifacts": [{"kind":"...", "id":"...", "rev":1}],
-                      "degrade": ["..."],
-                      "needs_teacher": ["..."],
-                      "next_suggest": [{"atom":"...","why":"..."}],
-                      "one_liner": "一句话结论（≤60 字）"
-                    }
-
-                    缺什么、降级到什么程度，都写在 degrade 里，不要用正文解释。
+                  agentPreset: ShiBan_Executor_V0_5_1
 
               - id: tool-subagent-fork
                 name: '@deepseek-ai/dsh-tool-subagent'
                 config:
                   provider: fork
                   toolName: subagent_fork
-                  backgroundMode: continuable
 
               - id: tool-subagent-codex
                 name: '@deepseek-ai/dsh-tool-subagent'
@@ -363,7 +358,6 @@
                 config:
                   provider: codex
                   toolName: subagent_codex
-                  backgroundMode: one-shot
                   maxDepth: provider-managed
 
               - id: tool-subagent-claude-code
@@ -372,7 +366,6 @@
                 config:
                   provider: claude-code
                   toolName: subagent_claude_code
-                  backgroundMode: one-shot
                   maxDepth: provider-managed
 
               - id: workflow-ptc
@@ -409,3 +402,114 @@
             config:
               fetch: true
               searchTimeoutMs: 60000
+
+    # ── 师伴子 Agent 预设（模块执行者）─────────────────────────────────────
+    #
+    # DSH 0.2.1-rc.3 起，子 Agent 的人格与工具装配必须写成独立 preset，
+    # 由父级委派行用 agentPreset 绑定；tool-subagent 的 persona 字段会直接抛错。
+    # 本 preset 只做一件事：给 spawn 出来的模块执行者一套人格 + 最小工具面。
+    #
+    # 工具面刻意窄：执行者只加载技能、取上下文包、调 shiban-store、读写工作区文件。
+    # 不挂 ask_user（子 Agent 存活时调用会被 DELEGATED_CALLER 拒绝，问题必须
+    # 写进回执 needs_teacher[] 交给指挥）、不挂委派工具（禁止再委派）、
+    # 不挂 ralph / workflow（原子任务不需要这些）。
+    - id: preset-shiban-executor-v0-5-1
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: ShiBan_Executor_V0_5_1
+        name: 师伴模块执行者 v0.5.1
+        description: 师伴的子 Agent 人格——由指挥 Agent 委派的单个原子执行者。教师会话请选「师伴 v0.5.1」。
+        order: 11
+        plugins:
+          # workdir 变量由运行时行（shiban-runtime-v0-5-1）在 Host 层注册，
+          # assemble() 会先合并 global 层变量，预设内 persona 同样可见。
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: |-
+                你是师伴「模块执行者」子 Agent，由师伴指挥 Agent 委派，执行单个原子的专业任务。
+                你不是指挥 Agent，也不是通用编码助手：不要做意图识别，不要再委派其他 Agent，不要组建团队。
+
+                工作目录：{{workdir}}。
+
+                ## 执行顺序（不可跳过）
+                1. 用 skill 工具加载任务指定的技能（lesson-plan / quiz / class-eval /
+                   class-profile / teacher-growth / html-material 之一）。
+                   加载失败就停下并在回执里报 failed，不要凭记忆拼凑。
+                2. 用 `shiban-store ctx pack --for <你的技能> ...` 取上下文包。
+                   不要自己去翻文件拼输入——包里的字段名就是契约字段名。
+                3. 按技能契约产出内容，然后用 `shiban-store artifact put` 提交。
+                   id、版本、状态、引用校验都由 CLI 负责；你只提供 kind 与 payload。
+
+                ## 你必须遵守的三条
+                - 不编造：引用教材必须能在 `corpus read` 复现；缺语料就在 degrade 里声明。
+                - 不越界：只写技能契约约定的产物品类；不改别人的产物；不直接编辑 $SHIBAN_ROOT 下的文件。
+                - 不改状态：status 由 CLI 推进，你不能在 payload 里自封"已完成"。
+
+                ## 返回给指挥的内容（只返回这一段，不粘贴产物正文）
+                {
+                  "task_id": "...",
+                  "atom": "<你的技能名>",
+                  "status": "ok|partial|failed",
+                  "skills_loaded": ["<技能名>"],
+                  "artifacts": [{"kind":"...", "id":"...", "rev":1}],
+                  "degrade": ["..."],
+                  "needs_teacher": ["..."],
+                  "next_suggest": [{"atom":"...","why":"..."}],
+                  "one_liner": "一句话结论（≤60 字）"
+                }
+
+                缺什么、降级到什么程度，都写在 degrade 里，不要用正文解释。
+
+          - id: agent-instructions
+            name: '@deepseek-ai/dsh-agent-instructions'
+            config:
+              maxBytes: 65536
+
+          - id: tool-bash
+            name: '@deepseek-ai/dsh-tool-bash'
+            disabled: !!js process.platform === 'win32'
+
+          - id: tool-pwsh
+            name: '@deepseek-ai/dsh-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+
+          - id: tool-fs-search
+            name: '@deepseek-ai/dsh-tool-fs-search'
+            config:
+              sampleOverCapGlobResults: false
+
+          - id: skill-filesystem
+            name: '@deepseek-ai/dsh-skill-filesystem'
+            config:
+              includeDefaultRoots: true
+              # 两路并行，互不依赖时序：
+              #  ① 运行时插件 lib/paths.js 在模块加载时设 DSH_BUNDLED_SKILL_DIR
+              #     （skill-filesystem 原生读它，此时它不会被构造早于此）；
+              #  ② 若 ① 尚未发生，下面的 !!js 用 import.meta.url 等价机制兜底——
+              #     通过 NODE_PATH 无关的 process.execPath 反查不可行，故显式读环境变量
+              #     并在为空时回退到由 require.resolve 从 profile 解析。
+              bundledSkillDir: !!js >-
+                (function () {
+                  const env = process.env.DSH_BUNDLED_SKILL_DIR;
+                  if (env) return env;
+                  const path = process.getBuiltinModule('node:path');
+                  for (const base of [baseUrl, process.getBuiltinModule('node:path').join(process.cwd(), 'x.js')]) {
+                    try {
+                      const req = process.getBuiltinModule('node:module').createRequire(base);
+                      return path.join(path.dirname(req.resolve('@levilou/dsh-shiban/package.json')), 'skills');
+                    } catch (e) {}
+                  }
+                  return '';
+                })()
+
+          - id: tool-skill
+            name: '@deepseek-ai/dsh-tool-skill'
+
+          - id: tool-todo
+            name: '@deepseek-ai/dsh-tool-todo'
+            config:
+              allowParallelInProgress: true

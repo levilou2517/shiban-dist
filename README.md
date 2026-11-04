@@ -1,6 +1,19 @@
-# 师伴 ShiBan v0.5.0
+# 师伴 ShiBan v0.5.1
 
 面向**师范生与新手教师**的循证教学辅助 Agent，作为 DSH 插件分发。
+
+## 支持要求
+
+| 项 | 要求 |
+|---|---|
+| **DSH** | **0.2.1-rc.5** — 本版基于此版本适配与实测，其他版本未经验证 |
+| **Python** | **3.10 – 3.13** — 数据层硬性依赖，不需要 `pip install` |
+| **Node** | ≥ 20 |
+| 操作系统 | Linux / macOS 已验证；Windows 启动器已补齐但**未经实机验证** |
+
+DSH 0.2.1 把子 Agent 人格从 `tool-subagent.persona` 改为「独立预设 + `agentPreset`」，
+师伴 v0.5.1 即按此结构编写。更早的 DSH（如 0.2.0-rc.2）用的是 `persona` 字段，
+配置结构不同，无法通用。
 
 装完是一个**空壳**：人格、六项原子技能、数据层就位——教材、素材与课堂证据由你自行导入或在使用中逐步积累。
 
@@ -28,11 +41,17 @@
 
 ### 前置
 
-| 项 | 要求 |
-|---|---|
-| DSH | ≥ 0.2.0-rc.2 |
-| Node | ≥ 20 |
-| **Python** | **3.10 – 3.13**（硬性依赖） |
+| 项 | 要求 | 说明 |
+|---|---|---|
+| **DSH** | **0.2.1-rc.5** | 本版即基于此版本适配与实测 |
+| Node | ≥ 20 | |
+| **Python** | **3.10 – 3.13** | 硬性依赖，不需要 `pip install` |
+
+> **为什么基于 0.2.1-rc.5 适配**：该版本把子 Agent 人格从 `tool-subagent.persona`
+> 改为「独立预设 + `agentPreset`」。师伴 v0.5.1 即按此结构编写。
+>
+> 其他 DSH 版本未经验证——尤其 0.2.0-rc.2 及更早使用 `persona` 字段，
+> 与 0.2.1 的配置结构不同。
 
 ### 关于 Python
 
@@ -83,7 +102,7 @@ https://github.com/levilou2517/shiban-dist
 Host 会先读出这个地址指向什么，确认显示的是
 
 ```
-@levilou/dsh-shiban   v0.5.0
+@levilou/dsh-shiban   v0.5.1
 ```
 
 再继续。
@@ -96,19 +115,19 @@ Host 会先读出这个地址指向什么，确认显示的是
 
 ### 方式二：使用已拿到的 zip 包
 
-如果你手上已经有 `shiban-0.5.0.zip`，按下面四步导入。
+如果你手上已经有 `shiban-0.5.1.zip`，按下面四步导入。
 
 **① 解压**
 
 解压到一个长期存放的位置，例如：
 
 ```
-C:\Users\你的名字\Documents\shiban-0.5.0      （Windows）
-/Users/你的名字/Documents/shiban-0.5.0           （macOS）
-/home/你的名字/shiban-0.5.0                      （Linux）
+C:\Users\你的名字\Documents\shiban-0.5.1      （Windows）
+/Users/你的名字/Documents/shiban-0.5.1           （macOS）
+/home/你的名字/shiban-0.5.1                      （Linux）
 ```
 
-解压后是一个名为 `shiban-0.5.0` 的**文件夹**，里面有 `package.json`、`使用说明.txt` 等。
+解压后是一个名为 `shiban-0.5.1` 的**文件夹**，里面有 `package.json`、`使用说明.txt` 等。
 
 **③ 复制解压后文件夹的路径**
 
@@ -136,20 +155,20 @@ DSH 用 Node 的 `path.isAbsolute()` 判断输入是不是路径。
 
 | 填写的 | 能否识别 |
 |---|---|
-| `/home/levi/Documents/shiban-0.5.0` | ✅ |
-| `~/Documents/shiban-0.5.0` | ❌ **`~` 不展开**，被当成包名 |
-| `./shiban-0.5.0` | ❌ 相对路径 |
-| `shiban-0.5.0` | ❌ 只有文件夹名 |
+| `/home/levi/Documents/shiban-0.5.1` | ✅ |
+| `~/Documents/shiban-0.5.1` | ❌ **`~` 不展开**，被当成包名 |
+| `./shiban-0.5.1` | ❌ 相对路径 |
+| `shiban-0.5.1` | ❌ 只有文件夹名 |
 
 **Windows**
 
 | 填写的 | 能否识别 |
 |---|---|
-| `C:\Users\你的名字\Downloads\shiban-0.5.0` | ✅ |
-| `C:/Users/你的名字/Downloads/shiban-0.5.0` | ✅ |
-| `"C:\Users\...\shiban-0.5.0"` | ❌ 带了引号 |
-| `Downloads\shiban-0.5.0` | ❌ 相对路径 |
-| `\Users\...\shiban-0.5.0` | ❌ 缺盘符 |
+| `C:\Users\你的名字\Downloads\shiban-0.5.1` | ✅ |
+| `C:/Users/你的名字/Downloads/shiban-0.5.1` | ✅ |
+| `"C:\Users\...\shiban-0.5.1"` | ❌ 带了引号 |
+| `Downloads\shiban-0.5.1` | ❌ 相对路径 |
+| `\Users\...\shiban-0.5.1` | ❌ 缺盘符 |
 
 > **Windows 用户特别注意引号**：从文件菜单选"复制为路径"会带上引号，必须去掉。
 > 更稳的取法：进文件夹 → 点地址栏（变成可编辑）→ 全选复制。
@@ -157,7 +176,7 @@ DSH 用 Node 的 `path.isAbsolute()` 判断输入是不是路径。
 若仍提示「无法识别这个包名或地址」，在路径前加 `file:` 试一次：
 
 ```
-file:C:\Users\你的名字\Downloads\shiban-0.5.0
+file:C:\Users\你的名字\Downloads\shiban-0.5.1
 ```
 
 **④ 导入并启用**
@@ -175,7 +194,7 @@ file:C:\Users\你的名字\Downloads\shiban-0.5.0
 | 步骤 | 做什么 |
 |---|---|
 | 1 | 解压到一个长期存放的位置 |
-| 2 | 进入解压出的 `shiban-0.5.0` 文件夹，复制它的完整路径 |
+| 2 | 进入解压出的 `shiban-0.5.1` 文件夹，复制它的完整路径 |
 | 3 | DSH 插件页 → 添加插件 → 粘贴路径 → 安装 |
 | 4 | 点「立即启用」 |
 
@@ -183,13 +202,13 @@ file:C:\Users\你的名字\Downloads\shiban-0.5.0
 
 ## 装完之后怎么确认
 
-**① 预设列表里有「师伴 v0.5.0」**
+**① 预设列表里有「师伴 v0.5.1」**
 
 新建会话时，预设选择器里应能看到它。
 
 **② 六个技能可用**
 
-选「师伴 v0.5.0」开新会话，问：
+选「师伴 v0.5.1」开新会话，问：
 
 > 你现在有哪些技能？
 
@@ -240,7 +259,7 @@ file:C:\Users\你的名字\Downloads\shiban-0.5.0
 
 插件页提示：**安装后暂不支持自动更新，升级需先卸载再装新版。**
 
-流程：插件页 → 卸载「师伴 v0.5.0」→ 添加插件（GitHub 地址）→ 安装 → 启用。
+流程：插件页 → 卸载「师伴 v0.5.1」→ 添加插件（GitHub 地址）→ 安装 → 启用。
 
 数据在 `<工作区>/.shiban/`，**卸载不会删除**。
 
@@ -254,4 +273,4 @@ file:C:\Users\你的名字\Downloads\shiban-0.5.0
 | 装完预设列表里找不到 | 装了但没启用 | 插件页找到卡片，打开开关 |
 | 出现两个「师伴」 | 旧版没卸载 | 卸载 `dsh-shiban-preset` |
 | 安装时要求允许构建脚本 | pnpm 拦截依赖脚本 | 点「允许这些脚本并重试」 |
-| 会话里说数据根是 `~/.shiban` | 装的是旧版本 | 确认版本为 v0.5.0 后重新安装 |
+| 会话里说数据根是 `~/.shiban` | 装的是旧版本 | 确认版本为 v0.5.1 后重新安装 |

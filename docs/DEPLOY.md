@@ -14,7 +14,7 @@ shiban-store migrate run --yes        # 仅当你要继承旧版本的素材时
 | 项 | 格式 | 示例 |
 |---|---|---|
 | 包名 | 稳定名 + semver 版本 | `@levilou/dsh-shiban` |
-| 预设 id | `ShiBan_V<X>_<Y>_<Z>`（带版本，避免新旧冲突） | `ShiBan_V0_5_0` |
+| 预设 id | `ShiBan_V<X>_<Y>_<Z>`（带版本，避免新旧冲突） | `ShiBan_V0.5.1` |
 | 预设显示名 | `师伴 v<X.Y.Z>` | 师伴 v0.5.0 |
 | 数据根 | `<工作区>/.shiban/` | 随工作区 |
 
@@ -45,7 +45,7 @@ shiban-store info
 
 | 项 | 要求 | 说明 |
 |---|---|---|
-| DSH | ≥ 0.2.0-rc.2 | 旧版用 `.agent-presets` 目录，不兼容 |
+| **DSH** | **0.2.1-rc.5** | 本版基于此版本的「独立预设 + agentPreset」结构编写 |
 | Node | ≥ 20 | 插件的运行时装配用 |
 | **Python** | **3.10 – 3.13**（硬性依赖） | 版本不符会明确报错，见下方排查 |
 | pnpm | 10.x | `dsh plugin` 内部调用 |
@@ -74,10 +74,10 @@ shiban-store info
 
 ```bash
 # 直接在源码目录安装（改动即时生效，适合开发）
-dsh plugin --profile web add /path/to/DSH_AI_Edu/V0.5.0
+dsh plugin --profile web add /path/to/DSH_AI_Edu/V0.5.1
 
 # 或先打包再安装
-cd /path/to/DSH_AI_Edu/V0.5.0
+cd /path/to/DSH_AI_Edu/V0.5.1
 tar czf /tmp/shiban-0.5.0.tgz package.json cordis.patch.yml VERSION lib skills \
     framework contracts docs presets vendor scripts tools
 dsh plugin --profile web add /tmp/shiban-0.5.0.tgz
@@ -112,7 +112,7 @@ v0.4.x 的包名是 `@levilou/dsh-shiban-preset`，preset id 也是 `shiban`。
 dsh plugin --profile web remove @levilou/dsh-shiban-preset
 
 # 2. 安装新版
-dsh plugin --profile web add /path/to/V0.5.0
+dsh plugin --profile web add /path/to/V0.5.1
 
 # 3. 旧版素材不迁（v0.4.x 数据模型不同）
 #    只确认新版本数据根已就绪即可
@@ -133,7 +133,7 @@ profile 的 `node_modules` 与 pnpm 全局 store 位置不一致。二选一：
 cd ~/.dsh/profiles/web
 echo 'store-dir=~/.dsh/pnpm-store' > .npmrc
 rm -rf node_modules
-dsh plugin --profile web add /path/to/V0.5.0
+dsh plugin --profile web add /path/to/V0.5.1
 
 # 方案 2：统一全局 store
 pnpm config set store-dir ~/.dsh/pnpm-store --global
@@ -369,6 +369,6 @@ dsh plugin --profile web remove @levilou/dsh-shiban
 
 ```bash
 DSH_HOME=/tmp/shiban-test dsh --from-default-profile web test
-DSH_HOME=/tmp/shiban-test dsh plugin --profile test add /path/to/V0.5.0
+DSH_HOME=/tmp/shiban-test dsh plugin --profile test add /path/to/V0.5.1
 DSH_HOME=/tmp/shiban-test SHIBAN_ROOT=/tmp/shiban-test-data dsh --profile test web
 ```

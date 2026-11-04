@@ -6,7 +6,7 @@ DSH 的预设已经是**声明式**的：一条 `@deepseek-ai/dsh-agent-preset` 
 本包的预设声明在 `cordis.patch.yml` 里：
 
 ```yaml
-- id: preset-shiban
+- id: preset-shiban-v0-5-1
   name: '@deepseek-ai/dsh-agent-preset'
   config:
     id: shiban

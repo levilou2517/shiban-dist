@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""shiban-store — 师伴命令行入口（v0.5.0）。
+"""shiban-store — 师伴命令行入口（v0.5.1）。
 
 一条通路：Agent 与脚本只经本 CLI 访问数据；不直接编辑 $SHIBAN_ROOT 下的文件。
 
@@ -745,7 +745,7 @@ def build_parser(argv_in=None) -> argparse.ArgumentParser:
     human_flag = "--human" in argv
     argv = [x for x in argv if x != "--human"]
 
-    ap = argparse.ArgumentParser(prog="shiban-store", description="师伴数据层 CLI（v0.5.0）")
+    ap = argparse.ArgumentParser(prog="shiban-store", description="师伴数据层 CLI（v0.5.1）")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("init", help="初始化数据根").set_defaults(fn=cmd_init)
